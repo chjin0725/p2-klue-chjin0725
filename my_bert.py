@@ -56,6 +56,19 @@ class ClsSepConcat(nn.Module):
         SEP = x[idx].squeeze(1)
         
         return torch.cat((CLS, SEP), dim = -1)
+
+class ClsSecondConcat(nn.Module):
+    '''CLS토큰과 CLS토큰 바로 다음 토큰(second token)을 concat
+    '''
+    def __init__(self):
+        super().__init__()
+        
+    def forward(self, x):
+        
+        CLS = x[:,0,:]
+        Second = x[:,1,:]
+        
+        return torch.cat((CLS, Second), dim = -1)
     
 class MyBertMean(nn.Module):
 
@@ -88,9 +101,9 @@ class MyBertMean(nn.Module):
 #         x = self.pooler_layer(x)
 #         x = self.tanh(x)
 #         x = self.dropout(x)
-        out = self.classifier(x)
+        logit = self.classifier(x)
         
-        return out
+        return logit
         
         
 class BertForSC(nn.Module): ## BertForSequencClassification 모델과 똑같은 구조.
@@ -118,9 +131,9 @@ class BertForSC(nn.Module): ## BertForSequencClassification 모델과 똑같은 
                       attention_mask=attention_mask,
                       token_type_ids=token_type_ids,)[1] ## shape (batch_size, emb_dim).
         x = self.dropout(x)
-        out = self.classifier(x)
+        logit = self.classifier(x)
         
-        return out
+        return logit
     
 class MyBertMeanTokenTypeID(nn.Module):
 
@@ -155,9 +168,9 @@ class MyBertMeanTokenTypeID(nn.Module):
 #         x = self.pooler_layer(x)
 #         x = self.tanh(x)
 #         x = self.dropout(x)
-        out = self.classifier(x)
+        logit = self.classifier(x)
         
-        return out
+        return logit
     
 class MyBertClsSepConcat(nn.Module):
 
@@ -190,6 +203,41 @@ class MyBertClsSepConcat(nn.Module):
 #         x = self.pooler_layer(x)
 #         x = self.tanh(x)
 #         x = self.dropout(x)
-        out = self.classifier(x)
+        logit = self.classifier(x)
         
-        return out
+        return logit
+
+class MyBertClsSecondConcat(nn.Module):
+
+    def __init__(self, model_name, bert_config):
+        super().__init__()
+        
+        self.bert = BertModel.from_pretrained(model_name)
+        self.CLS_Second_concat = ClsSecondConcat()
+#         self.pooler_layer = nn.Linear(bert_config.hidden_size, bert_config.hidden_size)
+#         self.tanh = nn.Tanh()
+#         self.dropout = nn.Dropout(bert_config.hidden_dropout_prob)
+        self.classifier = nn.Linear(bert_config.hidden_size*2, bert_config.num_labels)
+        
+    
+    def forward(self, input_ids, attention_mask, token_type_ids):
+        '''
+        Args:
+            input_ids (Tensor): shape (batch_size, seq_len).
+            attention_mask (Tensor): shape (batch_size, seq_len).
+            token_type_ids (Tensor): shape (batch_size, seq_len).
+        
+        Returns:
+            logit (Tensor): shape (batch_size, num_labels).
+                
+        '''
+        x = self.bert(input_ids=input_ids,
+                      attention_mask=attention_mask,
+                      token_type_ids=token_type_ids,)[0] ## shape (batch_size, seq_len, emb_dim).  pooled output이 아닌 last_hidden_state를 가져온다.
+        x = self.CLS_Second_concat(x) ## shape(batch_size, emb_dim).
+#         x = self.pooler_layer(x)
+#         x = self.tanh(x)
+#         x = self.dropout(x)
+        logit = self.classifier(x)
+        
+        return logit
