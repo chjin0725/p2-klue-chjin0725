@@ -19,6 +19,7 @@ from transformers import AutoTokenizer, BertModel, BertConfig
 from my_bert import *
 from avgMeter import AverageMeter
 from load_data import *
+from loss import *
 import wandb
 
 def seed_everything(seed):
@@ -32,7 +33,7 @@ def seed_everything(seed):
     torch.backends.cudnn.benchmark = False
     
 
-def train(args, model, criterion, optimizer, scheduler, train_loader, valid_loader):
+def train(args, device, model, criterion, optimizer, scheduler, train_loader, valid_loader):
     
     train_loss, train_acc = AverageMeter(), AverageMeter()
     valid_loss, valid_acc = AverageMeter(), AverageMeter()
@@ -42,8 +43,8 @@ def train(args, model, criterion, optimizer, scheduler, train_loader, valid_load
         train_acc.reset()
         for iter, x in enumerate(train_loader):
 
-            input_ids, attention_mask, token_type_ids = x['input_ids'].cuda(), x['attention_mask'].cuda(), x['token_type_ids'].cuda()
-            label = x['labels'].cuda()
+            input_ids, attention_mask, token_type_ids = x['input_ids'].to(device), x['attention_mask'].to(device), x['token_type_ids'].to(device)
+            label = x['labels'].to(device)
 
             pred_logit = model(input_ids, attention_mask, token_type_ids)
 
@@ -92,6 +93,7 @@ def train(args, model, criterion, optimizer, scheduler, train_loader, valid_load
                     "Valid ACC": valid_acc_val,
                     "Train Loss": train_loss_val,
                     "Valid Loss": valid_loss_val,
+                    'Learning Rate': scheduler.get_last_lr()[0],
                 }
             )
         
@@ -112,6 +114,10 @@ def data_loader(tokenizer, args):
     
     train_label = train_dataset['label'].values
     dev_label = dev_dataset['label'].values
+
+    ### get number of training samples per class 
+    _, counts = np.unique(train_label, return_counts=True)
+    samples_per_cls = list(counts)
     
     tokenized_train = tokenized_dataset(train_dataset, tokenizer)
     tokenized_dev = tokenized_dataset(dev_dataset, tokenizer)
@@ -125,25 +131,27 @@ def data_loader(tokenizer, args):
     train_loader = DataLoader(RE_train_dataset, batch_size=args.batch_size, num_workers = 4,  pin_memory=True, shuffle=True)
     valid_loader = DataLoader(RE_dev_dataset, batch_size=args.batch_size, num_workers = 4,  pin_memory=True, shuffle=False)
     
-    return train_loader, valid_loader
+    return train_loader, valid_loader, samples_per_cls
     
 def main(args):
     seed_everything(42)
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     
     bert_config = BertConfig.from_pretrained(args.model_name)
     bert_config.num_labels = 42
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     
-    train_loader, valid_loader = data_loader(tokenizer,args)
+    train_loader, valid_loader, samples_per_cls = data_loader(tokenizer,args)
     
-    model = MyBertClsSepConcat(args.model_name, bert_config)
+    model = MyBertClsToNthConcat(args.model_name, bert_config, 3)
     tmep = model.cuda()
     
-    criterion = nn.CrossEntropyLoss()
+    # criterion = nn.CrossEntropyLoss()
+    criterion = CB_loss(samples_per_cls = samples_per_cls, no_of_classes = 42, loss_type = "focal", beta = 0.99, gamma = 0.5)
     optimizer = Adam(model.parameters(), lr=args.lr)
     scheduler = CosineAnnealingWarmRestarts(optimizer, args.num_epochs, 1)
     
-    train(args, model, criterion, optimizer, scheduler, train_loader, valid_loader)
+    train(args, device, model, criterion, optimizer, scheduler, train_loader, valid_loader)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -151,10 +159,10 @@ if __name__ == '__main__':
     # model dir
     
     parser.add_argument('--model_name', type=str, default="bert-base-multilingual-cased")
-    parser.add_argument('--version', type=str, default="_v26")
+    parser.add_argument('--version', type=str, default="_v32")
     parser.add_argument('--num_epochs', type=int, default = 10)
     parser.add_argument('--lr', type=float, default = 0.000025)
     parser.add_argument('--batch_size', type=int, default = 16)
     args = parser.parse_args()
-    wandb.init(tags=["epoch 10", "[CLS]e1[SEP]e2[SEP]sentence[SEP]", "dev set", 'seed 42', 'lr 25e-6', 'CLS SEP concat', 'batch size 32'], name = args.model_name+args.version)
+    wandb.init(tags=["epoch 10", "[CLS]e1[SEP]e2[SEP]sentence[SEP]", "dev set", 'seed 42', 'lr 25e-6', 'CLS to Nth concat, N=3', 'batch size 16', 'CB focal r=0.5, b=0.99'], name = args.model_name+args.version)
     main(args)
