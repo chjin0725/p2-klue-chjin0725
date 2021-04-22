@@ -78,9 +78,6 @@ class MyBertMean(nn.Module):
         
         self.bert = BertModel.from_pretrained(model_name)
         self.masked_mean_pooling = MaskedMeanPooling()
-#         self.pooler_layer = nn.Linear(bert_config.hidden_size, bert_config.hidden_size)
-#         self.tanh = nn.Tanh()
-#         self.dropout = nn.Dropout(bert_config.hidden_dropout_prob)
         self.classifier = nn.Linear(bert_config.hidden_size, bert_config.num_labels)
         
     
@@ -99,9 +96,6 @@ class MyBertMean(nn.Module):
                       attention_mask=attention_mask,
                       token_type_ids=token_type_ids,)[0] ## shape (batch_size, seq_len, emb_dim).  pooled output이 아닌 last_hidden_state를 가져온다.
         x = self.masked_mean_pooling(x, attention_mask) ## shape(batch_size, emb_dim).
-#         x = self.pooler_layer(x)
-#         x = self.tanh(x)
-#         x = self.dropout(x)
         logit = self.classifier(x)
         
         return logit
@@ -140,14 +134,9 @@ class MyBertMeanTokenTypeID(nn.Module):
 
     def __init__(self, model_name, bert_config):
         super().__init__()
-        
-#         self.bert = BertForSequenceClassification.from_pretrained(MODEL_NAME).bert ## without polling layer
-
+    
         self.bert = BertModel.from_pretrained(model_name)
         self.masked_mean_pooling_token_type_id = MaskedMeanPoolingTokenTypeID()
-#         self.pooler_layer = nn.Linear(bert_config.hidden_size, bert_config.hidden_size)
-#         self.tanh = nn.Tanh()
-#         self.dropout = nn.Dropout(bert_config.hidden_dropout_prob)
         self.classifier = nn.Linear(bert_config.hidden_size, bert_config.num_labels)
         
     
@@ -166,9 +155,6 @@ class MyBertMeanTokenTypeID(nn.Module):
                       attention_mask=attention_mask,
                       token_type_ids=token_type_ids,)[0] ## shape (batch_size, seq_len, emb_dim).  pooled output이 아닌 last_hidden_state를 가져온다.
         x = self.masked_mean_pooling_token_type_id(x, attention_mask, token_type_ids) ## shape(batch_size, emb_dim).
-#         x = self.pooler_layer(x)
-#         x = self.tanh(x)
-#         x = self.dropout(x)
         logit = self.classifier(x)
         
         return logit
@@ -180,9 +166,6 @@ class MyBertClsSepConcat(nn.Module):
         
         self.bert = BertModel.from_pretrained(model_name)
         self.CLS_SEP_concat = ClsSepConcat()
-#         self.pooler_layer = nn.Linear(bert_config.hidden_size, bert_config.hidden_size)
-#         self.tanh = nn.Tanh()
-#         self.dropout = nn.Dropout(bert_config.hidden_dropout_prob)
         self.classifier = nn.Linear(bert_config.hidden_size*2, bert_config.num_labels)
         
     
@@ -201,9 +184,6 @@ class MyBertClsSepConcat(nn.Module):
                       attention_mask=attention_mask,
                       token_type_ids=token_type_ids,)[0] ## shape (batch_size, seq_len, emb_dim).  pooled output이 아닌 last_hidden_state를 가져온다.
         x = self.CLS_SEP_concat(x, attention_mask, token_type_ids) ## shape(batch_size, emb_dim).
-#         x = self.pooler_layer(x)
-#         x = self.tanh(x)
-#         x = self.dropout(x)
         logit = self.classifier(x)
         
         return logit
@@ -215,9 +195,6 @@ class MyBertClsToNthConcat(nn.Module):
         
         self.bert = BertModel.from_pretrained(model_name)
         self.CLS_to_Nth_concat = ClsToNthConcat()
-#         self.pooler_layer = nn.Linear(bert_config.hidden_size, bert_config.hidden_size)
-#         self.tanh = nn.Tanh()
-#         self.dropout = nn.Dropout(bert_config.hidden_dropout_prob)
         self.classifier = nn.Linear(bert_config.hidden_size*N, bert_config.num_labels)
         self.N = N
     
@@ -234,11 +211,8 @@ class MyBertClsToNthConcat(nn.Module):
         '''
         x = self.bert(input_ids=input_ids,
                       attention_mask=attention_mask,
-                      token_type_ids=token_type_ids,)[0] ## shape (batch_size, seq_len, emb_dim).  pooled output이 아닌 last_hidden_state를 가져온다.
-        x = self.CLS_to_Nth_concat(x, self.N) ## shape(batch_size, emb_dim).
-#         x = self.pooler_layer(x)
-#         x = self.tanh(x)
-#         x = self.dropout(x)
+                      token_type_ids=token_type_ids,)[0]  ## shape (batch_size, seq_len, emb_dim).  pooled output이 아닌 last_hidden_state를 가져온다.
+        x = self.CLS_to_Nth_concat(x, self.N)  ## shape(batch_size, emb_dim).
         logit = self.classifier(x)
         
         return logit

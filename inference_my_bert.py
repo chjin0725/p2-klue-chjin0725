@@ -40,10 +40,9 @@ def inference(model, tokenized_sent, device):
 def load_test_dataset(dataset_dir, tokenizer):
     test_dataset = load_data(dataset_dir, dev= False)
     test_label = test_dataset['label'].values
+
     # tokenizing dataset
     tokenized_test = tokenized_dataset(test_dataset, tokenizer)
-    # tokenized_test = tokenized_dataset_ENT_token(test_dataset, tokenizer, train=False)
-    # tokenized_test = tokenized_dataset_ENT_token_in_sentence(test_dataset, tokenizer)
 
     print(tokenizer.convert_ids_to_tokens(tokenized_test['input_ids'][2]))
 
@@ -64,8 +63,6 @@ def main(args):
     bert_config.num_labels = 42
 
 
-    # model = MyBertClsSepConcat(args.model_name, bert_config)
-    # model.load_state_dict(torch.load(args.model_dir + args.model_name + args.version + '.pt'))
     model = torch.load(args.model_dir + args.model_name + args.version + '.pt')
     temp = model.to(device)
     
@@ -79,6 +76,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--model_dir', type=str, default="./results/")
     parser.add_argument('--model_name', type=str, default="bert-base-multilingual-cased")
-    parser.add_argument('--version', type=str, default="_v26")
+    parser.add_argument('--version', type=str, default="_v54")
     args = parser.parse_args()
     main(args)

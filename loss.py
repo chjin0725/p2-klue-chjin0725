@@ -54,7 +54,7 @@ class CB_loss(nn.Module):
 
     labels_one_hot = F.one_hot(labels, self.no_of_classes).float()
 
-    weights = torch.tensor(weights).float()
+    weights = torch.tensor(weights,device = self.device).float()
     weights = weights.unsqueeze(0).to(self.device)
     weights = weights.repeat(labels_one_hot.shape[0],1) * labels_one_hot
     weights = weights.sum(1)

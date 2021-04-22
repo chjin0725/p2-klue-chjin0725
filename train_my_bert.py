@@ -4,7 +4,6 @@ import argparse
 import random
 import os
 os.environ['WANDB_PROJECT'] = 'Pstage2_KLUE'
-# os.environ['WANDB_LOG_MODEL'] = 'true'
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import pandas as pd
@@ -41,6 +40,7 @@ def train(args, device, model, criterion, optimizer, scheduler, train_loader, va
     for epoch in range(args.num_epochs):
         train_loss.reset()
         train_acc.reset()
+        model.train()
         for iter, x in enumerate(train_loader):
 
             input_ids, attention_mask, token_type_ids = x['input_ids'].to(device), x['attention_mask'].to(device), x['token_type_ids'].to(device)
@@ -62,7 +62,7 @@ def train(args, device, model, criterion, optimizer, scheduler, train_loader, va
             train_acc.update(acc, input_ids.size(0))
 
 
-
+        model.eval()
         valid_loss.reset()
         valid_acc.reset()
         for x in valid_loader:
@@ -143,11 +143,11 @@ def main(args):
     
     train_loader, valid_loader, samples_per_cls = data_loader(tokenizer,args)
     
-    model = MyBertClsToNthConcat(args.model_name, bert_config, 3)
+    model = MyBertClsToNthConcat(args.model_name, bert_config, 4)
     tmep = model.cuda()
     
-    # criterion = nn.CrossEntropyLoss()
-    criterion = CB_loss(samples_per_cls = samples_per_cls, no_of_classes = 42, loss_type = "focal", beta = 0.99, gamma = 0.5)
+    criterion = nn.CrossEntropyLoss()
+    # criterion = CB_loss(samples_per_cls = samples_per_cls, no_of_classes = 42, loss_type = "focal", beta = 0.2, gamma = 2)
     optimizer = Adam(model.parameters(), lr=args.lr)
     scheduler = CosineAnnealingWarmRestarts(optimizer, args.num_epochs, 1)
     
@@ -156,13 +156,12 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    # model dir
     
     parser.add_argument('--model_name', type=str, default="bert-base-multilingual-cased")
-    parser.add_argument('--version', type=str, default="_v32")
+    parser.add_argument('--version', type=str, default="_v58")
     parser.add_argument('--num_epochs', type=int, default = 10)
     parser.add_argument('--lr', type=float, default = 0.000025)
     parser.add_argument('--batch_size', type=int, default = 16)
     args = parser.parse_args()
-    wandb.init(tags=["epoch 10", "[CLS]e1[SEP]e2[SEP]sentence[SEP]", "dev set", 'seed 42', 'lr 25e-6', 'CLS to Nth concat, N=3', 'batch size 16', 'CB focal r=0.5, b=0.99'], name = args.model_name+args.version)
+    wandb.init(tags=["epoch 10", "[CLS]e1[SEP]e2[SEP]sentence[SEP]", "dev set", 'seed 42', 'lr 25e-6', 'CLS to Nth concat, N=4', 'batch size 16', 'CE loss'], name = args.model_name+args.version)
     main(args)
